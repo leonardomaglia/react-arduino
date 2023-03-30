@@ -39,7 +39,7 @@ import 'antd/dist/reset.css';
 import './App.css';
 
 // Device
-// import Device from './Device';
+import Device from './Device';
 
 function App() {
   const [messageApi, contextHolder] = message.useMessage();
@@ -80,7 +80,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // const device = new Device('/dev/tty.usbmodem142201', 9600);
+    const device = new Device('/dev/tty.usbmodem142201', 9600);
     // setArduino(device);
   }, []);
 
