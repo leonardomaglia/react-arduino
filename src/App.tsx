@@ -28,11 +28,13 @@ import {
 
 import { 
   CaretRightOutlined,
-  CloseOutlined
+  CloseOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 
 import dayjs, { Dayjs } from 'dayjs';
-import axios from "axios";
+import axios from 'axios';
+import { SerialPort, SerialOptions } from "./serial";
 
 // CSS
 import 'antd/dist/reset.css';
@@ -42,9 +44,9 @@ function App() {
   const [messageApi, contextHolder] = message.useMessage();
 
   const [arduino, setArduino] = useState()
-  const [port, setPort] = useState(123)
-  const [currentHumidity, setCurrentHumidity] = useState(400)
-  const [humidityTrigger, setHumidityTrigger] = useState<number>()
+  const [port, setPort] = useState<SerialPort>()
+  const [currentHumidity, setCurrentHumidity] = useState(0)
+  const [humidityTrigger, setHumidityTrigger] = useState<number>(100)
   const [currentWeather, setCurrentWheater] = useState<any>();
   const [scheduleTime, setScheduleTime] = useState<Dayjs>();
   const [schedules, setSchedules] = useState<string[]>([]);
@@ -87,7 +89,7 @@ function App() {
       status: <Badge status="success" />
     },
     {
-      icon: <IoWater size={20}/>,
+      icon: <IoWater size={20} color='#1677ff'/>,
       description: 'Umidade em ' + currentHumidity
     }
   ];
@@ -134,12 +136,55 @@ function App() {
     }
   }
 
+  const requestPort = () => {
+    const requestedPort = navigator.serial.requestPort({
+      /* filters: [
+          {
+            vendorId: 0x0403, // FTDI
+            productId: 0x6001,
+          },
+        ],*/
+    });
+
+    requestedPort.then((value) => {
+      const info = value.getInfo();
+      value.open({
+        baudRate: 9600,
+        dataBits: 8,
+        stopBits: 1,
+        parity: "none"
+      });
+
+      setPort(value);
+    })
+  }
+
   const onSubmit = () => {
+    if (!port) {
+      messageApi.open({
+        type: 'error',
+        content: 'Necessário conectar o dispositivo',
+      });
+
+      return;
+    }
+
     setSaveSettingsLoading(true);
-    
-    messageApi.open({
-      type: 'success',
-      content: 'Configuração salva com sucesso',
+
+    const api = axios.create({
+      baseURL: 'https://localhost:7137/',
+    });
+
+    api.post('settings', {
+      HumidityLevel: humidityTrigger,
+      Schedules: schedules
+    }).then(() => {
+      setSaveSettingsLoading(false);
+
+      messageApi.open({
+        type: 'success',
+        content: 'Configuração salva com sucesso',
+      });
     });
   }
 
@@ -161,35 +206,48 @@ function App() {
             </Card>
 
             <Card title="Status" style={{ marginTop: '20px' }}>
-              <List
-                size="small"
-                bordered
-                dataSource={status}
-                renderItem={(item) => 
-                  <List.Item style={{ textAlign: 'left'}}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      {item.icon} <span style={{ paddingLeft: '5px' }}>{item.description} {item.status}</span>
-                    </span>
-                  </List.Item>
-                }
-              />
-            
-              <Button 
-                type="primary" 
-                icon={<CaretRightOutlined />}
-                danger
-                style={{ marginTop: '20px', width: '100%' }}
-                onClick={manualTrigger}
-              >
-                Irrigar manualmente
-              </Button>
+              {!port && <Fragment>
+                <Button 
+                  type="primary" 
+                  icon={<SearchOutlined />}
+                  danger
+                  style={{ marginTop: '20px', width: '100%' }}
+                  onClick={requestPort}
+                >
+                  Procurar dispositivo
+                </Button>
+              </Fragment>}
+              {port && <Fragment>
+                <List
+                  size="small"
+                  bordered
+                  dataSource={status}
+                  renderItem={(item) => 
+                    <List.Item style={{ textAlign: 'left'}}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        {item.icon} <span style={{ paddingLeft: '5px' }}>{item.description} {item.status}</span>
+                      </span>
+                    </List.Item>
+                  }
+                />
+              
+                <Button 
+                  type="primary" 
+                  icon={<CaretRightOutlined />}
+                  danger
+                  style={{ marginTop: '20px', width: '100%' }}
+                  onClick={manualTrigger}
+                >
+                  Irrigar manualmente
+                </Button>
+              </Fragment>}
             </Card>
           </Col>
           <Col span={15} offset={1}>
             <Card title="Ativar quando umidade chegar em">
               <div style={{ paddingTop: '15px' }}>
                 <Slider 
-                  defaultValue={30}
+                  value={humidityTrigger}
                   tooltip={{ open: true }}
                   min={100}
                   max={1000}
