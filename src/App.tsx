@@ -43,14 +43,18 @@ import './App.css';
 function App() {
   const [messageApi, contextHolder] = message.useMessage();
 
-  const [arduino, setArduino] = useState()
-  const [port, setPort] = useState<SerialPort>()
-  const [currentHumidity, setCurrentHumidity] = useState(0)
-  const [humidityTrigger, setHumidityTrigger] = useState<number>(100)
+  const [arduino, setArduino] = useState();
+  const [port, setPort] = useState<SerialPort>();
+  const [currentHumidity, setCurrentHumidity] = useState<number>();
+  const [humidityTrigger, setHumidityTrigger] = useState<number>(100);
   const [currentWeather, setCurrentWheater] = useState<any>();
   const [scheduleTime, setScheduleTime] = useState<Dayjs>();
   const [schedules, setSchedules] = useState<string[]>([]);
   const [saveSettingsLoading, setSaveSettingsLoading] = useState(false)
+
+  const api = axios.create({
+    baseURL: 'https://localhost:7137/',
+  })
 
   useEffect(() => {
     const openMeteo = axios.create({
@@ -79,8 +83,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-
-  }, []);
+    if (port) {
+      api.get(`device/humidity/${port}`)
+        .then(({ data }: { data: any }) => {
+          setCurrentHumidity(data);
+        }
+      );
+    }
+  }, [port]);
 
   const status = [
     {
@@ -148,6 +158,8 @@ function App() {
 
     requestedPort.then((value) => {
       const info = value.getInfo();
+      console.log(info)
+
       value.open({
         baudRate: 9600,
         dataBits: 8,
@@ -171,12 +183,8 @@ function App() {
 
     setSaveSettingsLoading(true);
 
-    const api = axios.create({
-      baseURL: 'https://localhost:7137/',
-    });
-
-    api.post('settings', {
-      HumidityLevel: humidityTrigger,
+    api.post(`settings/${port}`, {
+      HumidityTrigger: humidityTrigger,
       Schedules: schedules
     }).then(() => {
       setSaveSettingsLoading(false);
