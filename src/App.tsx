@@ -28,13 +28,11 @@ import {
 
 import { 
   CaretRightOutlined,
-  CloseOutlined,
-  SearchOutlined
+  CloseOutlined
 } from '@ant-design/icons';
 
 import dayjs, { Dayjs } from 'dayjs';
 import axios from 'axios';
-import { SerialPort, SerialOptions } from "./serial";
 
 // CSS
 import 'antd/dist/reset.css';
@@ -43,9 +41,9 @@ import './App.css';
 function App() {
   const [messageApi, contextHolder] = message.useMessage();
 
-  const [arduino, setArduino] = useState();
-  const [port, setPort] = useState<SerialPort>();
-  const [currentHumidity, setCurrentHumidity] = useState<number>();
+  const [connected, setConnected] = useState<boolean>(false);
+  const [devicePort] = useState<string>("/dev/ttyS0");
+  const [currentHumidity, setCurrentHumidity] = useState<number>(0);
   const [humidityTrigger, setHumidityTrigger] = useState<number>(100);
   const [currentWeather, setCurrentWheater] = useState<any>();
   const [scheduleTime, setScheduleTime] = useState<Dayjs>();
@@ -83,20 +81,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (port) {
-      api.get(`device/humidity/${port}`)
+    if (connected && devicePort) {
+      api.get('device/humidity', { params: { deviceId: devicePort } })
         .then(({ data }: { data: any }) => {
           setCurrentHumidity(data);
         }
       );
     }
-  }, [port]);
+  }, [devicePort]);
 
   const status = [
     {
       icon: <BsUsbSymbol size={20}/>,
-      description: 'Conectado na porta ' + port,
-      status: <Badge status="success" />
+      description: 'Conectado na porta ' + devicePort,
+      status: connected ? <Badge status="success" /> : <Badge status='error' />
     },
     {
       icon: <IoWater size={20} color='#1677ff'/>,
@@ -146,33 +144,18 @@ function App() {
     }
   }
 
-  const requestPort = () => {
-    const requestedPort = navigator.serial.requestPort({
-      /* filters: [
-          {
-            vendorId: 0x0403, // FTDI
-            productId: 0x6001,
-          },
-        ],*/
-    });
-
-    requestedPort.then((value) => {
-      const info = value.getInfo();
-      console.log(info)
-
-      value.open({
-        baudRate: 9600,
-        dataBits: 8,
-        stopBits: 1,
-        parity: "none"
-      });
-
-      setPort(value);
-    })
+  const connectDevice = () => {
+    api.post('device/connect/', null, { params: {
+      deviceId: devicePort
+    }})
+    .then(({ data }: { data: any }) => {
+        setConnected(data);
+      }
+    );
   }
 
   const onSubmit = () => {
-    if (!port) {
+    if (!connected) {
       messageApi.open({
         type: 'error',
         content: 'Necessário conectar o dispositivo',
@@ -183,10 +166,10 @@ function App() {
 
     setSaveSettingsLoading(true);
 
-    api.post(`settings/${port}`, {
+    api.post('settings', {
       HumidityTrigger: humidityTrigger,
       Schedules: schedules
-    }).then(() => {
+    }, { params: { deviceId: devicePort } }).then(() => {
       setSaveSettingsLoading(false);
 
       messageApi.open({
@@ -214,18 +197,18 @@ function App() {
             </Card>
 
             <Card title="Status" style={{ marginTop: '20px' }}>
-              {!port && <Fragment>
+              {!connected && <Fragment>
                 <Button 
                   type="primary" 
-                  icon={<SearchOutlined />}
+                  icon={<BsUsbSymbol style={{ marginRight: '6px', marginTop: '1px' }}/>}
                   danger
                   style={{ marginTop: '20px', width: '100%' }}
-                  onClick={requestPort}
+                  onClick={connectDevice}
                 >
-                  Procurar dispositivo
+                  Conectar dispositivo ({ devicePort })
                 </Button>
               </Fragment>}
-              {port && <Fragment>
+              {connected && <Fragment>
                 <List
                   size="small"
                   bordered
