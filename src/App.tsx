@@ -82,6 +82,13 @@ function App() {
 
   useEffect(() => {
     if (connected && devicePort) {
+      api.get('settings', { params: { deviceId: devicePort } })
+        .then(({ data }: { data: any }) => {
+          setHumidityTrigger(data.humidityTrigger);
+          setSchedules(data.schedules);
+        }
+      );
+
       api.get('device/humidity', { params: { deviceId: devicePort } })
         .then(({ data }: { data: any }) => {
           setCurrentHumidity(data);
