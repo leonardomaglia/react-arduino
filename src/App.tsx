@@ -48,7 +48,7 @@ function App() {
   const [connected, setConnected] = useState<boolean>(false);
   const [devicePort, setDevicePort] = useState<string>('');
   const [currentHumidity, setCurrentHumidity] = useState<number>(0);
-  const [humidityTrigger, setHumidityTrigger] = useState<number>(100);
+  const [humidityTrigger, setHumidityTrigger] = useState<number>(25);
   const [currentWeather, setCurrentWheater] = useState<any>();
   const [scheduleTime, setScheduleTime] = useState<Dayjs>();
   const [schedules, setSchedules] = useState<string[]>([]);
@@ -116,7 +116,7 @@ function App() {
     },
     {
       icon: <IoWater size={20} color='#1677ff'/>,
-      description: 'Umidade em ' + currentHumidity
+      description: 'Umidade em ' + currentHumidity + '%'
     }
   ];
 
@@ -265,9 +265,9 @@ function App() {
                 <Slider 
                   value={humidityTrigger}
                   tooltip={{ open: true }}
-                  min={100}
-                  max={1000}
-                  step={100}
+                  min={0}
+                  max={100}
+                  step={5}
                   onChange={(value) => setHumidityTrigger(value)}
                 />
               </div>
