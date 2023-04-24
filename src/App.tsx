@@ -14,6 +14,7 @@ import {
   TimePicker,
   Divider,
   Badge,
+  Input,
   message
 } from 'antd';
 
@@ -28,7 +29,8 @@ import {
 
 import { 
   CaretRightOutlined,
-  CloseOutlined
+  CloseOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 
 import dayjs, { Dayjs } from 'dayjs';
@@ -38,11 +40,13 @@ import axios from 'axios';
 import 'antd/dist/reset.css';
 import './App.css';
 
+import requestDevice from './navigatorFunctions';
+
 function App() {
   const [messageApi, contextHolder] = message.useMessage();
 
   const [connected, setConnected] = useState<boolean>(false);
-  const [devicePort] = useState<string>("/dev/ttyS0");
+  const [devicePort, setDevicePort] = useState<string>('');
   const [currentHumidity, setCurrentHumidity] = useState<number>(0);
   const [humidityTrigger, setHumidityTrigger] = useState<number>(100);
   const [currentWeather, setCurrentWheater] = useState<any>();
@@ -80,22 +84,29 @@ function App() {
       })
   }, []);
 
-  useEffect(() => {
-    if (connected && devicePort) {
-      api.get('settings', { params: { deviceId: devicePort } })
-        .then(({ data }: { data: any }) => {
-          setHumidityTrigger(data.humidityTrigger);
-          setSchedules(data.schedules);
-        }
-      );
+  const getSettings = () => {
+    api.get('settings', { params: { deviceId: devicePort } })
+      .then(({ data }: { data: any }) => {
+        setHumidityTrigger(data.humidityTrigger);
+        setSchedules(data.schedules);
+      }
+    );
+  }
 
-      api.get('device/humidity', { params: { deviceId: devicePort } })
-        .then(({ data }: { data: any }) => {
-          setCurrentHumidity(data);
-        }
-      );
+  const getHumidity = () => {
+    api.get('device/humidity', { params: { deviceId: devicePort } })
+      .then(({ data }: { data: any }) => {
+        setCurrentHumidity(data);
+      }
+    );
+  }
+
+  useEffect(() => {
+    if (devicePort && connected) {
+      getSettings();
+      getHumidity();
     }
-  }, [devicePort]);
+  }, [devicePort, connected]);
 
   const status = [
     {
@@ -110,13 +121,17 @@ function App() {
   ];
 
   const manualTrigger = () => {
+    api.get('device/humidity/trigger', { params: { deviceId: devicePort } })
+
     messageApi
       .open({
         type: 'loading',
-        content: 'Aguando..',
-        duration: 5,
+        content: 'Irrigando..',
+        duration: 4,
       })
-      .then(() => message.success('Aguado!', 2.5))
+      .then(() => {
+        message.success('Irrigado!', 2.5)
+      });
   }
 
   const onAddSchedule = () => {
@@ -152,13 +167,7 @@ function App() {
   }
 
   const connectDevice = () => {
-    api.post('device/connect/', null, { params: {
-      deviceId: devicePort
-    }})
-    .then(({ data }: { data: any }) => {
-        setConnected(data);
-      }
-    );
+    setConnected(true);
   }
 
   const onSubmit = () => {
@@ -205,6 +214,7 @@ function App() {
 
             <Card title="Status" style={{ marginTop: '20px' }}>
               {!connected && <Fragment>
+                <Input placeholder="Informe a porta conectada" value={devicePort} onChange={(e) => setDevicePort(e.target.value)}/>
                 <Button 
                   type="primary" 
                   icon={<BsUsbSymbol style={{ marginRight: '6px', marginTop: '1px' }}/>}
@@ -212,7 +222,7 @@ function App() {
                   style={{ marginTop: '20px', width: '100%' }}
                   onClick={connectDevice}
                 >
-                  Conectar dispositivo ({ devicePort })
+                  Conectar dispositivo
                 </Button>
               </Fragment>}
               {connected && <Fragment>
@@ -231,9 +241,17 @@ function App() {
               
                 <Button 
                   type="primary" 
+                  icon={<ReloadOutlined />}
+                  style={{ marginTop: '20px', width: '100%' }}
+                  onClick={getHumidity}
+                >
+                  Obter umidade
+                </Button>
+                <Button 
+                  type="primary" 
                   icon={<CaretRightOutlined />}
                   danger
-                  style={{ marginTop: '20px', width: '100%' }}
+                  style={{ marginTop: '10px', width: '100%' }}
                   onClick={manualTrigger}
                 >
                   Irrigar manualmente
